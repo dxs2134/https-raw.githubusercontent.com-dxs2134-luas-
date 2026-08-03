@@ -81,7 +81,7 @@ function Menu.LoadBannerTexture(url)
     if not url or url == "" or not Susano or not Susano.HttpGet or not Susano.LoadTextureFromBuffer then return end
 
     local loadRoutine = function()
-        local success = pcall(function()
+        pcall(function()
             local status, body = Susano.HttpGet(url)
             if status == 200 and body and #body > 0 then
                 local textureId, width, height = Susano.LoadTextureFromBuffer(body)
@@ -169,11 +169,11 @@ function Menu.DrawRect(x, y, width, height, r, g, b, a)
     if b > 1.0 then b = b / 255.0 end
     if a > 1.0 then a = a / 255.0 end
 
-    if Susano.DrawFilledRect then
+    if Susano and Susano.DrawFilledRect then
         Susano.DrawFilledRect(x, y, width, height, r, g, b, a)
-    elseif Susano.FillRect then
+    elseif Susano and Susano.FillRect then
         Susano.FillRect(x, y, width, height, r, g, b, a)
-    elseif Susano.DrawRect then
+    elseif Susano and Susano.DrawRect then
         for i = 0, height - 1 do
             Susano.DrawRect(x, y + i, width, 1, r, g, b, a)
         end
@@ -181,6 +181,7 @@ function Menu.DrawRect(x, y, width, height, r, g, b, a)
 end
 
 function Menu.DrawText(x, y, text, size_px, r, g, b, a)
+    if not Susano or not Susano.DrawText then return end
     local scale = Menu.Scale or 1.0
     Susano.DrawText(x, y, text, (size_px or 16) * scale, (r or 255) > 1 and r / 255 or (r or 1.0), (g or 255) > 1 and g / 255 or (g or 1.0), (b or 255) > 1 and b / 255 or (b or 1.0), (a or 1.0) > 1 and a / 255 or (a or 1.0))
 end
@@ -257,7 +258,7 @@ function Menu.Render()
 
     if not (Susano and Susano.BeginFrame) then return end
 
-    local dt = GetFrameTime and GetFrameTime() or 0.016
+    local dt = (GetFrameTime and GetFrameTime()) or 0.016
     local animSpeed = 5.0 * dt
 
     Menu.LoadingBarAlpha = Menu.IsLoading and math.min(1.0, Menu.LoadingBarAlpha + animSpeed) or math.max(0.0, Menu.LoadingBarAlpha - animSpeed)
@@ -268,8 +269,9 @@ function Menu.Render()
 
     if Menu.Visible then
         if Susano.EnableOverlay then Susano.EnableOverlay(Menu.EditorMode) end
-        -- Background & UI Render calls simplified
     end
 
     if Susano.SubmitFrame then Susano.SubmitFrame() end
 end
+
+return Menu
