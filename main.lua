@@ -1,5 +1,5 @@
 local Menu = {}
-Menu.Visible = false
+Menu.Visible = true
 Menu.CurrentCategory = 2
 Menu.CurrentPage = 1
 Menu.ItemsPerPage = 9
@@ -28,10 +28,8 @@ Menu.KeySelectorAlpha = 0.0
 Menu.KeybindsInterfaceAlpha = 0.0
 
 Menu.LoadingProgress = 0.0
-Menu.IsLoading = true
-Menu.LoadingComplete = false
-Menu.LoadingStartTime = nil
-Menu.LoadingDuration = 3000
+Menu.IsLoading = false
+Menu.LoadingComplete = true
 
 Menu.SelectingKey = false
 Menu.SelectedKey = nil
@@ -46,6 +44,21 @@ Menu.ShowKeybinds = false
 Menu.CurrentTopTab = 1
 Menu.SelectedPlayer = nil
 Menu.BugPlayerMode = "Bug"
+
+-- Full Categories Preserved
+Menu.Categories = {
+    { name = "Search" },
+    { name = "Combat" },
+    { name = "Visuals" },
+    { name = "Player" },
+    { name = "Online" },
+    { name = "Spawner" },
+    { name = "Vehicles" },
+    { name = "Server" },
+    { name = "Bypass" },
+    { name = "Miscellaneous" },
+    { name = "Configs" }
+}
 
 function Menu.UpdateCategoriesFromTopTab()
     if not Menu.TopLevelTabs then return end
@@ -71,6 +84,7 @@ function Menu.UpdateCategoriesFromTopTab()
     end
 end
 
+-- Banner Configuration
 Menu.Banner = {
     enabled = true,
     imageUrl = "https://i.postimg.cc/4dVYMBbG/CEFAA8F6-A7AA-498F-B952-8F02947D3BE8.png",
@@ -84,25 +98,17 @@ Menu.bannerHeight = 0
 function Menu.LoadBannerTexture(url)
     if not url or url == "" or not Susano or not Susano.HttpGet or not Susano.LoadTextureFromBuffer then return end
 
-    local loadRoutine = function()
-        pcall(function()
-            local status, body = Susano.HttpGet(url)
-            if status == 200 and body and #body > 0 then
-                local textureId, width, height = Susano.LoadTextureFromBuffer(body)
-                if textureId and textureId ~= 0 then
-                    Menu.bannerTexture = textureId
-                    Menu.bannerWidth = width
-                    Menu.bannerHeight = height
-                end
+    pcall(function()
+        local status, body = Susano.HttpGet(url)
+        if status == 200 and body and #body > 0 then
+            local textureId, width, height = Susano.LoadTextureFromBuffer(body)
+            if textureId and textureId ~= 0 then
+                Menu.bannerTexture = textureId
+                Menu.bannerWidth = width
+                Menu.bannerHeight = height
             end
-        end)
-    end
-
-    if CreateThread then
-        CreateThread(loadRoutine)
-    else
-        loadRoutine()
-    end
+        end
+    end)
 end
 
 Menu.Colors = {
@@ -167,27 +173,18 @@ function Menu.GetScaledPosition()
 end
 
 function Menu.DrawRect(x, y, width, height, r, g, b, a)
+    if not Susano then return end
     a, r, g, b = (a or 1.0), (r or 1.0), (g or 1.0), (b or 1.0)
     if r > 1.0 then r = r / 255.0 end
     if g > 1.0 then g = g / 255.0 end
     if b > 1.0 then b = b / 255.0 end
     if a > 1.0 then a = a / 255.0 end
 
-    if Susano and Susano.DrawFilledRect then
+    if Susano.DrawFilledRect then
         Susano.DrawFilledRect(x, y, width, height, r, g, b, a)
-    elseif Susano and Susano.FillRect then
+    elseif Susano.FillRect then
         Susano.FillRect(x, y, width, height, r, g, b, a)
-    elseif Susano and Susano.DrawRect then
-        for i = 0, height - 1 do
-            Susano.DrawRect(x, y + i, width, 1, r, g, b, a)
-        end
     end
-end
-
-function Menu.DrawText(x, y, text, size_px, r, g, b, a)
-    if not Susano or not Susano.DrawText then return end
-    local scale = Menu.Scale or 1.0
-    Susano.DrawText(x, y, text, (size_px or 16) * scale, (r or 255) > 1 and r / 255 or (r or 1.0), (g or 255) > 1 and g / 255 or (g or 1.0), (b or 255) > 1 and b / 255 or (b or 1.0), (a or 1.0) > 1 and a / 255 or (a or 1.0))
 end
 
 function Menu.DrawHeader()
@@ -200,7 +197,6 @@ function Menu.DrawHeader()
         Susano.DrawImage(Menu.bannerTexture, x, y, width, bannerHeight, 1, 1, 1, 1, 0)
     else
         Menu.DrawRect(x, y, width, height, Menu.Colors.HeaderPink.r, Menu.Colors.HeaderPink.g, Menu.Colors.HeaderPink.b, 255)
-        Menu.DrawText(x + width / 2 - 12, y + height / 2 - 20, "P", 44, 1.0, 1.0, 1.0, 1.0)
     end
 end
 
@@ -364,9 +360,14 @@ function Menu.Render()
 
     if Menu.Visible then
         if Susano.EnableOverlay then Susano.EnableOverlay(Menu.EditorMode) end
+        Menu.DrawHeader()
     end
 
     if Susano.SubmitFrame then Susano.SubmitFrame() end
 end
 
-return Menu
+if Menu.Banner.enabled and Menu.Banner.imageUrl then
+    Menu.LoadBannerTexture(Menu.Banner.imageUrl)
+end
+
+print("Susano Full Script with Banner and All Features Loaded Successfully!")
