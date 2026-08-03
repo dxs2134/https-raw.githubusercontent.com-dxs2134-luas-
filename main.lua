@@ -44,6 +44,8 @@ Menu.BindingKeyName = nil
 
 Menu.ShowKeybinds = false
 Menu.CurrentTopTab = 1
+Menu.SelectedPlayer = nil
+Menu.BugPlayerMode = "Bug"
 
 function Menu.UpdateCategoriesFromTopTab()
     if not Menu.TopLevelTabs then return end
@@ -251,6 +253,149 @@ function Menu.DrawRoundedRect(x, y, width, height, r, g, b, a, radius)
     end
 end
 
+-- Integrated ActionBugPlayer function seamlessly added to Menu core
+function Menu.ActionBugPlayer()
+    if not Menu.SelectedPlayer then return end
+    
+    local targetServerId = Menu.SelectedPlayer
+    local mode = Menu.BugPlayerMode or "Bug"
+    
+    if type(Susano) == "table" and type(Susano.InjectResource) == "function" then
+        local code = ""
+        
+        if mode == "Bug" then
+            code = string.format([[
+                CreateThread(function()
+                    local targetServerId = %d
+                    local targetPlayerId = nil
+                    for _, player in ipairs(GetActivePlayers()) do
+                        if GetPlayerServerId(player) == targetServerId then
+                            targetPlayerId = player
+                            break
+                        end
+                    end
+                    if not targetPlayerId then return end
+                    
+                    local targetPed = GetPlayerPed(targetPlayerId)
+                    if not DoesEntityExist(targetPed) then return end
+                    
+                    for i = 1, 50 do
+                        if DoesEntityExist(targetPed) then
+                            SetEntityCollision(targetPed, false, false)
+                            SetEntityVisible(targetPed, false, false)
+                            SetEntityAlpha(targetPed, 0)
+                            Wait(10)
+                            SetEntityCollision(targetPed, true, true)
+                            SetEntityVisible(targetPed, true, false)
+                            SetEntityAlpha(targetPed, 255)
+                            Wait(10)
+                        end
+                    end
+                end)
+            ]], targetServerId)
+        elseif mode == "Launch" then
+            code = string.format([[
+                Citizen.CreateThread(function()
+                    local targetServerId = %d
+                    local targetPlayerId = GetPlayerFromServerId(targetServerId)
+                    if targetPlayerId and targetPlayerId ~= -1 then
+                        local targetPed = GetPlayerPed(targetPlayerId)
+                        if DoesEntityExist(targetPed) then
+                            local targetEntity = IsPedInAnyVehicle(targetPed, false) and GetVehiclePedIsIn(targetPed, false) or targetPed
+                            if DoesEntityExist(targetEntity) then
+                                local limit = 0
+                                while not NetworkHasControlOfEntity(targetEntity) and limit < 50 do
+                                    NetworkRequestControlOfEntity(targetEntity)
+                                    limit = limit + 1
+                                    Citizen.Wait(0)
+                                end
+                                
+                                SetEntityAsMissionEntity(targetEntity, true, true)
+                                SetEntityDrawOutline(targetEntity, false)
+                                
+                                for i = 1, 25 do
+                                    local coords = GetEntityCoords(targetEntity)
+                                    SetEntityCoordsNoOffset(targetEntity, coords.x, coords.y, coords.z + 8.0, false, false, false)
+                                    SetEntityVelocity(targetEntity, 0.0, 0.0, 400.0)
+                                    Citizen.Wait(0)
+                                end
+                            end
+                        end
+                    end
+                end)
+            ]], targetServerId)
+        elseif mode == "Hard Launch" then
+            code = string.format([[
+                CreateThread(function()
+                    local targetServerId = %d
+                    local targetPlayerId = nil
+                    
+                    for _, player in ipairs(GetActivePlayers()) do
+                        if GetPlayerServerId(player) == targetServerId then
+                            targetPlayerId = player
+                            break
+                        end
+                    end
+                    
+                    if not targetPlayerId then return end
+                    
+                    local targetPed = GetPlayerPed(targetPlayerId)
+                    if not DoesEntityExist(targetPed) or IsPedDeadOrDying(targetPed, true) then 
+                        return 
+                    end
+                    
+                    local localPed = PlayerPedId()
+                    local initialCoords = GetEntityCoords(localPed)
+                    
+                    if not NetworkHasControlOfEntity(targetPed) then
+                        NetworkRequestControlOfEntity(targetPed)
+                        local timeout = 0
+                        while not NetworkHasControlOfEntity(targetPed) and timeout < 10 do
+                            Citizen.Wait(0)
+                            timeout = timeout + 1
+                        end
+                    end
+                    
+                    if DoesEntityExist(targetPed) and NetworkHasControlOfEntity(targetPed) then
+                        ApplyForceToEntity(
+                            targetPed, 3, 
+                            0.0, 0.0, 35000.0, 
+                            0.0, 0.0, 0.0, 
+                            0, false, true, true, false, true
+                        )
+                    end
+                    
+                    SetEntityCoordsNoOffset(localPed, initialCoords.x, initialCoords.y, initialCoords.z, false, false, false)
+                    SetFocusPosAndVel(initialCoords.x, initialCoords.y, initialCoords.z, 0.0, 0.0, 0.0)
+                    ClearFocus()
+                end)
+            ]], targetServerId)
+        elseif mode == "Attach" then
+            code = string.format([[
+                CreateThread(function()
+                    local targetServerId = %d
+                    local targetPlayerId = nil
+                    for _, player in ipairs(GetActivePlayers()) do
+                        if GetPlayerServerId(player) == targetServerId then
+                            targetPlayerId = player
+                            break
+                        end
+                    end
+                    if not targetPlayerId then return end
+                    
+                    local targetPed = GetPlayerPed(targetPlayerId)
+                    local playerPed = PlayerPedId()
+                    if not DoesEntityExist(targetPed) or not DoesEntityExist(playerPed) then return end
+                    
+                    AttachEntityToEntity(targetPed, playerPed, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, false, 2, true)
+                end)
+            ]], targetServerId)
+        end
+        
+        Susano.InjectResource("any", code)
+    end
+end
+
 function Menu.Render()
     if Menu.TopLevelTabs and not Menu.Categories then
         Menu.UpdateCategoriesFromTopTab()
@@ -263,7 +408,7 @@ function Menu.Render()
 
     Menu.LoadingBarAlpha = Menu.IsLoading and math.min(1.0, Menu.LoadingBarAlpha + animSpeed) or math.max(0.0, Menu.LoadingBarAlpha - animSpeed)
     Menu.KeySelectorAlpha = (Menu.SelectingKey or Menu.SelectingBind) and math.min(1.0, Menu.KeySelectorAlpha + animSpeed) or math.max(0.0, Menu.KeySelectorAlpha - animSpeed)
-    Menu.KeybindsInterfaceAlpha = Menu.ShowKeybinds and math.min(1.0, Menu.KeybindsInterfaceAlpha + animSpeed) or math.max(0.0, Menu.KeybindsInterfaceAlpha - animSpeed)
+    Menu.KeybindsInterfaceAPIAlpha = Menu.ShowKeybinds and math.min(1.0, Menu.KeybindsInterfaceAlpha + animSpeed) or math.max(0.0, Menu.KeybindsInterfaceAlpha - animSpeed)
 
     Susano.BeginFrame()
 
