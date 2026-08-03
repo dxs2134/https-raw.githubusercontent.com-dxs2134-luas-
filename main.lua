@@ -53,8 +53,10 @@ function Menu.UpdateCategoriesFromTopTab()
     if not currentTop then return end
 
     Menu.Categories = {{ name = currentTop.name }}
-    for _, cat in ipairs(currentTop.categories) do
-        table.insert(Menu.Categories, cat)
+    if currentTop.categories then
+        for _, cat in ipairs(currentTop.categories) do
+            table.insert(Menu.Categories, cat)
+        end
     end
     
     Menu.CurrentCategory = 2
@@ -202,58 +204,6 @@ function Menu.DrawHeader()
     end
 end
 
-function Menu.DrawScrollbar(x, startY, visibleHeight, selectedIndex, totalItems, isMainMenu, menuWidth)
-    if totalItems < 1 then return end
-
-    local scaledPos = Menu.GetScaledPosition()
-    local scrollbarWidth, scrollbarPadding = scaledPos.scrollbarWidth, scaledPos.scrollbarPadding
-    local scrollbarX = (Menu.ScrollbarPosition == 2) and (x + (menuWidth or scaledPos.width) + scrollbarPadding) or (x - scrollbarWidth - scrollbarPadding)
-
-    local thumbHeight = visibleHeight
-    local thumbY = startY
-    
-    if totalItems > Menu.ItemsPerPage then
-        local scrollOffset = isMainMenu and (Menu.CategoryScrollOffset or 0) or (Menu.ItemScrollOffset or 0)
-        local scrollProgress = math.min(1.0, math.max(0.0, scrollOffset / math.max(1, totalItems - Menu.ItemsPerPage)))
-        thumbY = math.max(startY, math.min(startY + visibleHeight - thumbHeight, startY + scrollProgress * (visibleHeight - thumbHeight)))
-    end
-
-    Menu.scrollbarY = Menu.scrollbarY and (Menu.scrollbarY + (thumbY - Menu.scrollbarY) * 0.15) or thumbY
-    Menu.scrollbarHeight = Menu.scrollbarHeight and (Menu.scrollbarHeight + (thumbHeight - Menu.scrollbarHeight) * 0.15) or thumbHeight
-
-    local bgR = (Menu.Colors.SelectedBg.r or 255) / 255.0
-    local bgG = (Menu.Colors.SelectedBg.g or 0) / 255.0
-    local bgB = (Menu.Colors.SelectedBg.b or 255) / 255.0
-    
-    if Susano and Susano.DrawRectFilled then
-        Susano.DrawRectFilled(scrollbarX + 1, Menu.scrollbarY + 1, scrollbarWidth - 2, Menu.scrollbarHeight - 2, bgR, bgG, bgB, 1.0, (scrollbarWidth - 2) / 2)
-    else
-        Menu.DrawRoundedRect(scrollbarX + 1, Menu.scrollbarY + 1, scrollbarWidth - 2, Menu.scrollbarHeight - 2, bgR * 255, bgG * 255, bgB * 255, 255, (scrollbarWidth - 2) / 2)
-    end
-end
-
-function Menu.DrawRoundedRect(x, y, width, height, r, g, b, a, radius)
-    radius = radius or 0
-    if radius <= 0 then
-        Menu.DrawRect(x, y, width, height, r, g, b, a)
-        return
-    end
-    Menu.DrawRect(x + radius, y, width - 2 * radius, height, r, g, b, a)
-    Menu.DrawRect(x, y + radius, radius, height - 2 * radius, r, g, b, a)
-    Menu.DrawRect(x + width - radius, y + radius, radius, height - 2 * radius, r, g, b, a)
-    
-    for i = 0, radius - 1 do
-        local slice_width = math.ceil(math.sqrt(radius * radius - i * i))
-        local top_y = y + radius - 1 - i
-        Menu.DrawRect(x + radius - slice_width, top_y, slice_width, 1, r, g, b, a)
-        Menu.DrawRect(x + width - radius, top_y, slice_width, 1, r, g, b, a)
-        local bottom_y = y + height - radius + i
-        Menu.DrawRect(x + radius - slice_width, bottom_y, slice_width, 1, r, g, b, a)
-        Menu.DrawRect(x + width - radius, bottom_y, slice_width, 1, r, g, b, a)
-    end
-end
-
--- Integrated ActionBugPlayer function seamlessly added to Menu core
 function Menu.ActionBugPlayer()
     if not Menu.SelectedPlayer then return end
     
@@ -408,7 +358,7 @@ function Menu.Render()
 
     Menu.LoadingBarAlpha = Menu.IsLoading and math.min(1.0, Menu.LoadingBarAlpha + animSpeed) or math.max(0.0, Menu.LoadingBarAlpha - animSpeed)
     Menu.KeySelectorAlpha = (Menu.SelectingKey or Menu.SelectingBind) and math.min(1.0, Menu.KeySelectorAlpha + animSpeed) or math.max(0.0, Menu.KeySelectorAlpha - animSpeed)
-    Menu.KeybindsInterfaceAPIAlpha = Menu.ShowKeybinds and math.min(1.0, Menu.KeybindsInterfaceAlpha + animSpeed) or math.max(0.0, Menu.KeybindsInterfaceAlpha - animSpeed)
+    Menu.KeybindsInterfaceAlpha = Menu.ShowKeybinds and math.min(1.0, Menu.KeybindsInterfaceAlpha + animSpeed) or math.max(0.0, Menu.KeybindsInterfaceAlpha - animSpeed)
 
     Susano.BeginFrame()
 
